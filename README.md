@@ -124,6 +124,11 @@ class Fluffy < WashOut::Type
         :name => :string,
         :age  => :int
       }
+
+  # Optionally put in another namespace
+  def self.namespaced_type
+    "foo:universe"
+  end
 end
 
 class FluffyContainer < WashOut::Type

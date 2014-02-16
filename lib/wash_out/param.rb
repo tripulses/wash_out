@@ -111,9 +111,14 @@ module WashOut
 
     # Returns a WSDL namespaced identifier for this type.
     def namespaced_type
+      if self.classified?
+        if @source_class.respond_to? :namespaced_type 
+          return @source_class.namespaced_type
+        end
+      end
       struct? ? "tns:#{basic_type}" : "xsd:#{xsd_type}"
     end
-
+    
     # Parses a +definition+. The format of the definition is best described
     # by the following BNF-like grammar.
     #

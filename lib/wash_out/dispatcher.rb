@@ -81,6 +81,8 @@ module WashOut
       @operation   = soap_action = request.env['wash_out.soap_action']
       @action_spec = self.class.soap_actions[soap_action]
 
+      @additional_namespaces = soap_config.additional_namespaces
+
       result = { 'value' => result } unless result.is_a? Hash
       result = HashWithIndifferentAccess.new(result)
 

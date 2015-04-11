@@ -1,5 +1,5 @@
 xml.instruct!
-xml.definitions {
+xml.definitions({
     'xmlns' => 'http://schemas.xmlsoap.org/wsdl/',
     'xmlns:tns' => @namespace,
     'xmlns:soap' => 'http://schemas.xmlsoap.org/wsdl/soap/',
@@ -9,7 +9,7 @@ xml.definitions {
     'xmlns:wsdl' => 'http://schemas.xmlsoap.org/wsdl/',
     'name' => @name,
     'targetNamespace' => @namespace
-  }.merge(@additional_namespaces) do
+  }.merge(@additional_namespaces)) do
   xml.types do
     xml.tag! "schema", :targetNamespace => @namespace, :xmlns => 'http://www.w3.org/2001/XMLSchema' do
       defined = []

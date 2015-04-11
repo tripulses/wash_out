@@ -1,13 +1,15 @@
 xml.instruct!
-xml.definitions 'xmlns' => 'http://schemas.xmlsoap.org/wsdl/',
-                'xmlns:tns' => @namespace,
-                'xmlns:soap' => 'http://schemas.xmlsoap.org/wsdl/soap/',
-                'xmlns:xsd' => 'http://www.w3.org/2001/XMLSchema',
-                'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
-                'xmlns:soap-enc' => 'http://schemas.xmlsoap.org/soap/encoding/',
-                'xmlns:wsdl' => 'http://schemas.xmlsoap.org/wsdl/',
-                'name' => @name,
-                'targetNamespace' => @namespace do
+xml.definitions {
+    'xmlns' => 'http://schemas.xmlsoap.org/wsdl/',
+    'xmlns:tns' => @namespace,
+    'xmlns:soap' => 'http://schemas.xmlsoap.org/wsdl/soap/',
+    'xmlns:xsd' => 'http://www.w3.org/2001/XMLSchema',
+    'xmlns:xsi' => 'http://www.w3.org/2001/XMLSchema-instance',
+    'xmlns:soap-enc' => 'http://schemas.xmlsoap.org/soap/encoding/',
+    'xmlns:wsdl' => 'http://schemas.xmlsoap.org/wsdl/',
+    'name' => @name,
+    'targetNamespace' => @namespace
+  }.merge(@additional_namespaces) do
   xml.types do
     xml.tag! "schema", :targetNamespace => @namespace, :xmlns => 'http://www.w3.org/2001/XMLSchema' do
       defined = []

@@ -636,7 +636,7 @@ describe WashOut do
       mock_controller(wsse_username: "gorilla", wsse_password: "secret") do
         soap_action "checkToken", :args => :integer, :return => nil, :to => 'check_token'
         def check_token
-          request.env['WSSE_TOKEN']['username'].should == "gorilla"
+           request.env['WSSE_TOKEN']['username'].should == "gorilla"
           request.env['WSSE_TOKEN']['password'].should == "secret"
           render :soap => nil
         end
@@ -672,33 +672,40 @@ describe WashOut do
         should raise_exception(Savon::SOAPFault)
     end
 
-    it "handles PasswordDigest auth" do
-      mock_controller(wsse_username: "gorilla", wsse_password: "secret") do
-        soap_action "checkAuth", :args => :integer, :return => :boolean, :to => 'check_auth'
-        def check_auth
-          render :soap => (params[:value] == 42)
+    context "handles PasswordDigest auth" do
+      before :each do
+        mock_controller(wsse_username: "gorilla", wsse_password: "secret") do
+          soap_action "checkAuth", :args => :integer, :return => :boolean, :to => 'check_auth'
+          def check_auth
+            render :soap => (params[:value] == 42)
+            end
         end
       end
 
-      # correct auth
-      lambda { savon(:check_auth, 42){ wsse_auth "gorilla", "secret" } }.
-        should_not raise_exception
+      it 'works with correct auth' do
+        lambda { savon(:check_auth, 42){ wsse_auth "gorilla", "secret" } }.
+          should_not raise_exception
+      end
 
-      # correct digest auth
-      lambda { savon(:check_auth, 42){ wsse_auth "gorilla", "secret", :digest } }.
-        should_not raise_exception
+      it 'works with correct digest auth' do
+        lambda { savon(:check_auth, 42){ wsse_auth "gorilla", "secret", :digest } }.
+          should_not raise_exception
+      end
 
-      # wrong user
-      lambda { savon(:check_auth, 42){ wsse_auth "chimpanzee", "secret", :digest } }.
-        should raise_exception(Savon::SOAPFault)
+      it 'rejects wrong user' do
+        lambda { savon(:check_auth, 42){ wsse_auth "chimpanzee", "secret", :digest } }.
+          should raise_exception(Savon::SOAPFault)
+      end
 
-      # wrong pass
-      lambda { savon(:check_auth, 42){ wsse_auth "gorilla", "nicetry", :digest } }.
-        should raise_exception(Savon::SOAPFault)
+      it 'rejects wrong pass' do
+        lambda { savon(:check_auth, 42){ wsse_auth "gorilla", "nicetry", :digest } }.
+          should raise_exception(Savon::SOAPFault)
+      end
 
-      # no auth
-      lambda { savon(:check_auth, 42) }.
-        should raise_exception(Savon::SOAPFault)
+      it 'rejects no auth' do
+        lambda { savon(:check_auth, 42) }.
+          should raise_exception(Savon::SOAPFault)
+      end
     end
 
     it "handles auth callback" do

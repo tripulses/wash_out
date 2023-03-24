@@ -16,9 +16,8 @@ module WashOut
     class ProgrammerError < Exception; end
 
     def _authenticate_wsse
-
       begin
-        xml_security   = env['wash_out.soap_data'].values_at(:envelope, :Envelope).compact.first
+        xml_security   = request.env['wash_out.soap_data'].values_at(:envelope, :Envelope).compact.first
         xml_security   = xml_security.values_at(:header, :Header).compact.first
         xml_security   = xml_security.values_at(:security, :Security).compact.first
         username_token = xml_security.values_at(:username_token, :UsernameToken).compact.first
@@ -31,7 +30,12 @@ module WashOut
       request.env['WSSE_TOKEN'] = username_token.with_indifferent_access unless username_token.blank?
     end
 
+    def _map_soap_headers
+      @_soap_headers = xml_header_data
+    end
+
     def _map_soap_parameters
+
       # strip_empty_nodes = lambda{|hash|
       #   hash.keys.each do |key|
       #     if hash[key].is_a? Hash
@@ -65,14 +69,14 @@ module WashOut
 
     # This action generates the WSDL for defined SOAP methods.
     def _generate_wsdl
-
-      @map       = self.class.soap_actions
-      @namespace = soap_config.namespace
-      @name      = controller_path.gsub('/', '_')
+      @map          = self.class.soap_actions
+      @namespace    = soap_config.namespace
+      @name         = controller_path
+      @service_name = soap_config.service_name
 
       @additional_namespaces = soap_config.additional_namespaces
 
-      render :template => "wash_out/#{soap_config.wsdl_style}/wsdl", :layout => false,
+      render :template => "wash_with_soap/#{soap_config.wsdl_style}/wsdl", :layout => false,
              :content_type => 'text/xml'
     end
 
@@ -129,15 +133,29 @@ module WashOut
         return result_spec
       }
 
+      header = options[:header]
+      if header.present?
+        header = { 'value' => header } unless header.is_a? Hash
+        header = HashWithIndifferentAccess.new(header)
+      end
+
       render :template => "wash_out/#{soap_config.wsdl_style}/response",
              :layout => false,
-             :locals => { :result => inject.call(result, @action_spec[:out]) },
+             :locals => {
+               :header => header.present? ? inject.call(header, @action_spec[:header_out])
+                                      : nil,
+               :result => inject.call(result, @action_spec[:out])
+             },
              :content_type => 'text/xml'
     end
 
     # This action is a fallback for all undefined SOAP actions.
     def _invalid_action
       render_soap_error("Cannot find SOAP action mapping for #{request.env['wash_out.soap_action']}")
+    end
+
+    def _invalid_request
+      render_soap_error("Invalid SOAP request")
     end
 
     def _catch_soap_errors
@@ -157,7 +175,14 @@ module WashOut
              :content_type => 'text/xml'
     end
 
-     def self.included(controller)
+    def soap_request
+      OpenStruct.new({
+        params: @_params,
+        headers: @_soap_headers
+      })
+    end
+
+    def self.included(controller)
       entity = if defined?(Rails::VERSION::MAJOR) && (Rails::VERSION::MAJOR >= 4)
         'action'
       else
@@ -177,27 +202,41 @@ module WashOut
       end
     end
 
-    def self.deep_select(hash, result=[], &blk)
-      result += Hash[hash.select(&blk)].values
+    def self.deep_select(collection, result=[], &blk)
+      values = collection.respond_to?(:values) ? collection.values : collection
+      result += values.select(&blk)
 
-      hash.each do |key, value|
-        result = deep_select(value, result, &blk) if value.is_a? Hash
+      values.each do |value|
+        if value.is_a?(Hash) || value.is_a?(Array)
+          result = deep_select(value, result, &blk)
+        end
       end
 
       result
     end
 
-    def self.deep_replace_href(hash, replace)
-      return replace[hash[:@href]] if hash.has_key?(:@href)
+    def self.deep_replace_href(element, replace)
+      return element unless element.is_a?(Array) || element.is_a?(Hash)
 
-      hash.keys.each do |key, value|
-        hash[key] = deep_replace_href(hash[key], replace) if hash[key].is_a?(Hash)
+      if element.is_a?(Array) # Traverse arrays
+        return element.map{|x| deep_replace_href(x, replace)}
       end
 
-      hash
+      if element.has_key?(:@href) # Replace needle and traverse replacement
+        return deep_replace_href(replace[element[:@href]], replace)
+      end
+
+      element.each do |key, value| # Traverse hashes
+        element[key] = deep_replace_href(value, replace)
+      end
+
+      element
     end
 
     private
+    def soap_action?
+      soap_action.present?
+    end
 
     def action_spec
       self.class.soap_actions[soap_action]
@@ -212,9 +251,15 @@ module WashOut
     end
 
     def xml_data
-      xml_data = env['wash_out.soap_data'].values_at(:envelope, :Envelope).compact.first
-      xml_data = xml_data.values_at(:body, :Body).compact.first
+      envelope = request.env['wash_out.soap_data'].values_at(:envelope, :Envelope).compact.first
+      xml_data = envelope.values_at(:body, :Body).compact.first || {}
+      return xml_data if soap_config.wsdl_style == "document"
       xml_data = xml_data.values_at(soap_action.underscore.to_sym, soap_action.to_sym, request_input_tag.to_sym).compact.first || {}
+    end
+
+    def xml_header_data
+      envelope = request.env['wash_out.soap_data'].values_at(:envelope, :Envelope).compact.first
+      header_data = envelope.values_at(:header, :Header).compact.first || {}
     end
 
   end
